@@ -34,6 +34,8 @@ import javax.xml.soap.SOAPException;
 import javax.xml.soap.SOAPMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
 
 /**
  * This class implements a Servlet which functionality can be configured through
@@ -284,14 +286,62 @@ public class ProviderGateway extends AbstractAdapterServlet {
             }
             // Convert all the elements under request to key - value list pairs.
             // Each key can have multiple values
-            Map map = SOAPHelper.nodesToMultiMap(requestNode.getChildNodes());
+            Map map = processParameters(requestNode.getChildNodes());
+
             // If message has attachments, use the first attachment as
             // request body
             processAttachment(map, message);
             return map;
         }
 
-        protected boolean processAttachment(Map map, SOAPMessage message) {
+        private Map processParameters(NodeList list) {
+            Map<String, List<String>> map = new HashMap<>();
+            for (int i = 0; i < list.getLength(); i++) {
+                if (list.item(i).getNodeType() == javax.xml.soap.Node.ELEMENT_NODE && list.item(i).hasChildNodes()) {
+                    if ("params".equals(list.item(i).getLocalName())) {
+                        NodeList params = (NodeList) list.item(i);
+                        for (int j = 0; j < params.getLength(); j++) {
+                            Element param = (Element) params.item(j);
+                            org.w3c.dom.Node keyNode = param.getElementsByTagName("ts1:key").item(0);
+                            org.w3c.dom.Node valueNode = param.getElementsByTagName("ts1:value").item(0);
+                            String key = keyNode.getTextContent();
+                            if (!map.containsKey(key)) {
+                                map.put(key, new ArrayList<>());
+                            }
+                            map.get(key).add(valueNode.getTextContent());
+                        }
+                    } else {
+                        SOAPHelper.nodesToMultiMap(list.item(i).getChildNodes(), map);
+                    }
+                } else {
+                    processMultiMapNode(list, i, map);
+                }
+            }
+            return map;
+        }
+
+        private void processMultiMapNode(NodeList list, int index, Map<String, List<String>> map) {
+            if (list.item(index).getNodeType() == javax.xml.soap.Node.ELEMENT_NODE
+                    && !list.item(index).hasChildNodes()) {
+                String key = list.item(index).getLocalName();
+                if (!map.containsKey(key)) {
+                    map.put(key, new ArrayList<>());
+                }
+                map.get(key).add("");
+            } else if (list.item(index).getNodeType() == javax.xml.soap.Node.TEXT_NODE) {
+                String key = list.item(index).getParentNode().getLocalName();
+                String value = list.item(index).getNodeValue();
+                value = value.trim();
+                if (!value.isEmpty()) {
+                    if (!map.containsKey(key)) {
+                        map.put(key, new ArrayList<>());
+                    }
+                    map.get(key).add(value);
+                }
+            }
+        }
+
+		protected boolean processAttachment(Map map, SOAPMessage message) {
             // If message has attachments, use the first attachment as
             // request body
             if (message.countAttachments() > 0 && map.containsKey(Constants.PARAM_REQUEST_BODY)) {

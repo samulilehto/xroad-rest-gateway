@@ -23,6 +23,7 @@ import com.pkrete.xrd4j.common.security.Encrypter;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
@@ -656,18 +657,42 @@ public class ConsumerGateway extends HttpServlet {
                 logger.debug("Add resourceId : \"{}\".", this.resourceId);
                 soapRequest.addChildElement("resourceId").addTextNode(this.resourceId);
             }
+
             Map<String, String[]> params = (Map<String, String[]>) request.getRequestData();
-            for (Map.Entry<String, String[]> entry : params.entrySet()) {
-                String key = entry.getKey();
-                String[] arr = entry.getValue();
-                for (String value : arr) {
-                    logger.debug("Add parameter : \"{}\" -> \"{}\".", key, value);
-                    soapRequest.addChildElement(key).addTextNode(value);
+            if (!params.isEmpty()) {
+                SOAPElement paramsElement = soapRequest.addChildElement("params");
+                for (Map.Entry<String, String[]> entry : params.entrySet()) {
+                    String key = entry.getKey();
+                    String[] arr = entry.getValue();
+                    for (String value : arr) {
+                        value = fixEncoding(value);
+                        SOAPElement paramElement = paramsElement.addChildElement("param");
+                        logger.debug("Add parameter : \"{}\" -> \"{}\".", key, value);
+                        paramElement.addChildElement("key").addTextNode(key);
+                        paramElement.addChildElement("value").addTextNode(value);
+                    }
                 }
             }
         }
 
-        protected void handleAttachment(ServiceRequest request, SOAPElement soapRequest, SOAPEnvelope envelope, String attachmentData) throws SOAPException {
+        /**
+         * This method takes a String that is created as UTF-8 string from ISO-8859-1
+         * bytes. Returns fixed UTF-8 encoded String.
+         *
+         * I tried to set uriEncoding property of Tomcat, but it did not help, so I
+         * created this workaround method.
+         */
+        private String fixEncoding(String misEncodedString) {
+            try {
+                byte[] bytes = misEncodedString.getBytes("ISO-8859-1");
+                return new String(bytes, "UTF-8");
+            } catch (UnsupportedEncodingException uee) {
+                uee.printStackTrace();
+            }
+            return null;
+        }
+
+		protected void handleAttachment(ServiceRequest request, SOAPElement soapRequest, SOAPEnvelope envelope, String attachmentData) throws SOAPException {
             logger.debug("Request body was found from the request. Add request body as SOAP attachment. Content type is \"{}\".", this.contentType);
             SOAPElement data = soapRequest.addChildElement(envelope.createName(Constants.PARAM_REQUEST_BODY));
             data.addAttribute(envelope.createName("href"), Constants.PARAM_REQUEST_BODY);
