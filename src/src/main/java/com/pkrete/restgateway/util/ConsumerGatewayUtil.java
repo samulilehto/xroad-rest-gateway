@@ -187,7 +187,7 @@ public class ConsumerGatewayUtil {
         }
         for (Map.Entry<String, ConsumerEndpoint> entry : endpoints.entrySet()) {
             String key = entry.getKey();
-            String keyMod = key.replaceAll("\\{" + Constants.PARAM_RESOURCE_ID + "\\}", "([\\\\w\\\\-]+?)");
+            String keyMod = key.replaceAll("\\{" + Constants.PARAM_RESOURCE_ID + "\\}", "([\\\\w\\\\-\\\\(\\\\)]+?)");
             logger.trace("Modified key used for comparison : \"{}\".", keyMod);
             if (serviceId.matches(keyMod)) {
                 logger.debug("Found partial match by service id. Request value : \"{}\", matching value : \"{}\".", serviceId, key);
