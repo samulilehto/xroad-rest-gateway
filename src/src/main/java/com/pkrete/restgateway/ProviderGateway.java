@@ -296,19 +296,26 @@ public class ProviderGateway extends AbstractAdapterServlet {
 
         private Map processParameters(NodeList list) {
             Map<String, List<String>> map = new HashMap<>();
+
             for (int i = 0; i < list.getLength(); i++) {
-                if (list.item(i).getNodeType() == javax.xml.soap.Node.ELEMENT_NODE && list.item(i).hasChildNodes()) {
-                    if ("params".equals(list.item(i).getLocalName())) {
-                        NodeList params = (NodeList) list.item(i);
+                org.w3c.dom.Node listNode = list.item(i);
+                if (listNode.getNodeType() == javax.xml.soap.Node.ELEMENT_NODE && listNode.hasChildNodes()) {
+                    if ("params".equals(listNode.getLocalName())) {
+                        NodeList params = (NodeList) listNode;
                         for (int j = 0; j < params.getLength(); j++) {
-                            Element param = (Element) params.item(j);
-                            org.w3c.dom.Node keyNode = param.getElementsByTagName("ts1:key").item(0);
-                            org.w3c.dom.Node valueNode = param.getElementsByTagName("ts1:value").item(0);
-                            String key = keyNode.getTextContent();
-                            if (!map.containsKey(key)) {
-                                map.put(key, new ArrayList<>());
+                            org.w3c.dom.Node paramsNode = params.item(j);
+                            if (paramsNode.getNodeType() == javax.xml.soap.Node.ELEMENT_NODE && paramsNode.hasChildNodes()) {
+                                if ("param".equals(paramsNode.getLocalName())) {
+                                    Element param = (Element) paramsNode;
+                                    org.w3c.dom.Node keyNode = param.getElementsByTagNameNS("*", "key").item(0);
+                                    org.w3c.dom.Node valueNode = param.getElementsByTagNameNS("*", "value").item(0);
+                                    String key = keyNode.getTextContent();
+                                    if (!map.containsKey(key)) {
+                                        map.put(key, new ArrayList<>());
+                                    }
+                                    map.get(key).add(valueNode.getTextContent());
+                                }
                             }
-                            map.get(key).add(valueNode.getTextContent());
                         }
                     } else {
                         SOAPHelper.nodesToMultiMap(list.item(i).getChildNodes(), map);
